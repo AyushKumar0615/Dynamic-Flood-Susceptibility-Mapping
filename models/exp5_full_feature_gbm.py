@@ -9,7 +9,19 @@ import json
 import pandas as pd
 import numpy as np
 import xgboost as xgb
-from configs.config import PROCESSED_DATA_PATH, RANDOM_SEED, TEST_SIZE
+
+# Safe config import with fallback defaults
+try:
+    from configs.config import RANDOM_SEED, TEST_SIZE
+except ImportError:
+    RANDOM_SEED = 42
+    TEST_SIZE = 0.2
+
+try:
+    from configs.config import PROCESSED_DATA_PATH
+except ImportError:
+    PROCESSED_DATA_PATH = "data/processed/flood_dataset.csv"
+
 from src.interaction_features import compute_interaction_features
 from src.evaluation import evaluate_predictions
 
@@ -20,10 +32,12 @@ def build_feature_table(data):
 
 def run_experiment_5():
     print("Loading harmonized tabular dataset...")
-    if not os.path.exists(PROCESSED_DATA_PATH):
-        raise FileNotFoundError(f"Dataset not found at {PROCESSED_DATA_PATH}. Run harmonization first.")
+    data_path = PROCESSED_DATA_PATH if os.path.exists(PROCESSED_DATA_PATH) else "data/processed/flood_dataset.csv"
     
-    raw_df = pd.read_csv(PROCESSED_DATA_PATH)
+    if not os.path.exists(data_path):
+        raise FileNotFoundError(f"Dataset not found at {data_path}. Run harmonization first.")
+    
+    raw_df = pd.read_csv(data_path)
     
     print("Building full feature set including interaction terms...")
     df = build_feature_table(raw_df)
@@ -31,7 +45,6 @@ def run_experiment_5():
     X = df.drop(columns=['label'])
     y = df['label']
     
-    # Train-Test Split matching central configuration
     from sklearn.model_selection import train_test_split
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=TEST_SIZE, random_state=RANDOM_SEED, stratify=y
@@ -56,7 +69,7 @@ def run_experiment_5():
     with open(metrics_path, 'w') as f:
         json.dump(metrics, f, indent=4)
         
-    print("\nModel 5 Execution Complete!")
+    print("\n✅ Model 5 Execution Complete!")
     print(f"Metrics Saved to {metrics_path}:")
     for k, v in metrics.items():
         print(f"  {k}: {v:.4f}" if isinstance(v, float) else f"  {k}: {v}")
