@@ -1,0 +1,10 @@
+{
+    "RandomForest": {
+        "accuracy": 0.9875,
+        "roc_auc": 0.999375315952914
+    },
+    "XGBoost_Model5": {
+        "accuracy": 0.9923611111111111,
+        "roc_auc": 0.9995912472015599
+    }
+}
