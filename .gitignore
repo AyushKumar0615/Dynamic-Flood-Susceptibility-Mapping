@@ -31,3 +31,9 @@ results/maps/*
 *.h5
 *.hdf5
 *.parquet
+
+# Trained model artifacts
+*.pkl
+*.joblib
+*.pt
+*.pth

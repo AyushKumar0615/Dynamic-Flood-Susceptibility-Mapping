@@ -1,0 +1,23 @@
+# Dependencies for Dynamic Flood Susceptibility Mapping.
+# Not yet installed in this environment; pin exact versions once the
+# shared pipeline is finalized.
+
+# Core
+numpy
+pandas
+scikit-learn
+
+# Geospatial
+rasterio
+geopandas
+shapely
+pyproj
+
+# Gradient boosting (exp5)
+xgboost
+
+# Notebooks
+jupyter
+
+# Plotting
+matplotlib
