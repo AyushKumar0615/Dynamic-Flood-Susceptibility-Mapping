@@ -1,21 +1,23 @@
-"""Shared evaluation protocol.
+"""Evaluation metrics utility for flood susceptibility ablation benchmarking."""
 
-All five experiments must be scored with this module using the same
-event-based train/test split and the same metrics so results are
-directly comparable.
-"""
+import numpy as np
+from sklearn.metrics import (
+    accuracy_score, 
+    precision_score, 
+    recall_score, 
+    f1_score, 
+    roc_auc_score
+)
 
-
-def event_based_split(samples, config):
-    """Split samples by flood event (not row-wise) to avoid leakage."""
-    raise NotImplementedError
-
-
-def compute_metrics(y_true, y_pred_proba, config):
-    """Compute the shared metric set (e.g. AUC, F1, precision/recall)."""
-    raise NotImplementedError
-
-
-def save_metrics(metrics, experiment_name, config):
-    """Write metrics to results/metrics/ in a consistent format."""
-    raise NotImplementedError
+def evaluate_model(y_true, y_pred, y_prob):
+    """
+    Calculates comprehensive classification performance metrics.
+    """
+    metrics = {
+        "accuracy": float(accuracy_score(y_true, y_pred)),
+        "precision": float(precision_score(y_true, y_pred, zero_division=0)),
+        "recall": float(recall_score(y_true, y_pred, zero_division=0)),
+        "f1_score": float(f1_score(y_true, y_pred, zero_division=0)),
+        "roc_auc": float(roc_auc_score(y_true, y_prob)) if len(np.unique(y_true)) > 1 else 0.5
+    }
+    return metrics
