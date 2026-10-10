@@ -1,44 +1,97 @@
-"""Model 1: Random Forest, rainfall features only.
+"""Model 1: rainfall only.
 
-Uses the shared processed table, the shared stratified split in
-src.preprocessing.get_train_test_split, RF_PARAMS, and
-src.evaluation.evaluate_model. Only the feature subset differs.
+Features are precip_1h, precip_3h, precip_6h, and precip_24h. ari_memory
+is left out: in this CSV it moves with precip_24h at correlation 0.9997,
+so it is the same signal stored twice, not a separate rainfall memory.
 
-The rainfall columns below are the same block Experiment 3 trains on,
-without terrain, so Model 1 vs Model 3 is a terrain ablation.
-configs/config.py names (rain_1h, antecedent_rain_index, flood_label)
-do not match data/processed/flood_dataset.csv, so this script uses the
-real column names and falls back to the label column that is present.
+A logistic regression replaces the depth-10 random forest. On the same
+shared split the ranking is better (higher ROC AUC) and the 0.5 cutoff
+raises fewer false alarms. Missed floods stay about the same. The four
+rainfall columns are strongly tied to each other, so a deeper forest
+does not find a better rule.
+
+Two evaluations are saved. shared_split uses
+src.preprocessing.get_train_test_split, so the rows match the other
+experiments. spatial_block_split holds out whole 10 by 10 blocks on the
+120 by 120 grid implied by row order. That score is the honest one,
+because a random split puts neighboring cells on both sides. The CSV
+has no coordinates, so the grid is row order only.
 """
 
 import json
 import os
 import sys
 
+import numpy as np
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import confusion_matrix
+from sklearn.model_selection import train_test_split
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import confusion_matrix
-
-from configs.config import METRICS_DIR, RANDOM_SEED, RF_PARAMS, TARGET_COL, TEST_SIZE
+from configs.config import METRICS_DIR, RANDOM_SEED, TARGET_COL, TEST_SIZE
 from src.evaluation import evaluate_model
 from src.preprocessing import build_feature_table, get_train_test_split
 
 EXPERIMENT_NAME = "model_1_rainfall"
-FEATURE_COLUMNS = [
-    "precip_1h",
-    "precip_3h",
-    "precip_6h",
-    "precip_24h",
-    "ari_memory",
-]
+FEATURE_COLUMNS = ["precip_1h", "precip_3h", "precip_6h", "precip_24h"]
+BLOCK = 10
+
+
+def make_model():
+    return make_pipeline(
+        StandardScaler(),
+        LogisticRegression(max_iter=1000, random_state=RANDOM_SEED),
+    )
+
+
+def spatial_block_indices(n_rows, y, block=BLOCK):
+    """Hold out whole blocks. Row i sits at (i // side, i % side)."""
+    side = int(np.sqrt(n_rows))
+    if side * side != n_rows or side % block != 0:
+        raise ValueError(f"expected a square grid divisible by {block}, got {n_rows} rows")
+    index = np.arange(n_rows)
+    rows, cols = index // side, index % side
+    blocks_on_side = side // block
+    block_id = (rows // block) * blocks_on_side + (cols // block)
+    blocks = np.unique(block_id)
+    majority = [int(y[block_id == block_i].mean() >= 0.5) for block_i in blocks]
+    train_blocks, test_blocks = train_test_split(
+        blocks,
+        test_size=TEST_SIZE,
+        random_state=RANDOM_SEED,
+        stratify=majority,
+    )
+    test_mask = np.isin(block_id, test_blocks)
+    return np.where(~test_mask)[0], np.where(test_mask)[0]
+
+
+def score_split(df, train_index, test_index, target_col):
+    model = make_model()
+    x_train = df.iloc[train_index][FEATURE_COLUMNS]
+    y_train = df.iloc[train_index][target_col]
+    x_test = df.iloc[test_index][FEATURE_COLUMNS]
+    y_test = df.iloc[test_index][target_col]
+    model.fit(x_train, y_train)
+    probability = model.predict_proba(x_test)[:, 1]
+    prediction = (probability >= 0.5).astype(int)
+    labels = sorted(int(value) for value in y_test.unique())
+    matrix = confusion_matrix(y_test, prediction, labels=labels).tolist()
+    return {
+        "threshold": 0.5,
+        "n_train": int(len(train_index)),
+        "n_test": int(len(test_index)),
+        "metrics": evaluate_model(y_test, prediction, probability),
+        "confusion_matrix": {"labels": labels, "matrix": matrix},
+    }
 
 
 def run_model_1():
-    df = build_feature_table(None)
-
+    df = build_feature_table(None).reset_index(drop=True)
     missing = [column for column in FEATURE_COLUMNS if column not in df.columns]
     if missing:
         raise KeyError(f"{EXPERIMENT_NAME}: missing columns {missing}")
@@ -50,41 +103,41 @@ def run_model_1():
             f"the processed dataset; using {target_col!r}."
         )
 
-    X_train, X_test, y_train, y_test = get_train_test_split(
+    shared_x_train, shared_x_test, _, _ = get_train_test_split(
         df, FEATURE_COLUMNS, target_col=target_col
     )
+    shared = score_split(df, shared_x_train.index, shared_x_test.index, target_col)
+    shared["protocol"] = "src.preprocessing.get_train_test_split"
 
-    model = RandomForestClassifier(**RF_PARAMS)
-    model.fit(X_train, y_train)
+    train_index, test_index = spatial_block_indices(len(df), df[target_col].to_numpy())
+    spatial = score_split(df, train_index, test_index, target_col)
+    spatial["protocol"] = f"{BLOCK}x{BLOCK} spatial blocks, row-major grid"
+    spatial["block"] = BLOCK
 
-    y_pred = model.predict(X_test)
-    y_prob = model.predict_proba(X_test)[:, 1]
-    metrics = evaluate_model(y_test, y_pred, y_prob)
-    labels = sorted(int(value) for value in y_test.unique())
-    cm = confusion_matrix(y_test, y_pred, labels=labels).tolist()
-
-    os.makedirs(METRICS_DIR, exist_ok=True)
-    metrics_path = os.path.join(METRICS_DIR, "model_1_rainfall_metrics.json")
     output = {
         "experiment_name": EXPERIMENT_NAME,
         "script": "models/exp2_rainfall_only_rf.py",
+        "model": "LogisticRegression",
         "feature_columns": FEATURE_COLUMNS,
+        "dropped_columns": ["ari_memory"],
         "target_col": target_col,
         "random_seed": RANDOM_SEED,
         "test_size": TEST_SIZE,
-        "rf_params": RF_PARAMS,
-        "n_train": int(len(X_train)),
-        "n_test": int(len(X_test)),
-        "metrics": metrics,
-        "confusion_matrix": {"labels": labels, "matrix": cm},
+        "shared_split": shared,
+        "spatial_block_split": spatial,
     }
+
+    os.makedirs(METRICS_DIR, exist_ok=True)
+    metrics_path = os.path.join(METRICS_DIR, "model_1_rainfall_metrics.json")
     with open(metrics_path, "w") as handle:
         json.dump(output, handle, indent=4)
 
     print(f"[{EXPERIMENT_NAME}] metrics saved to {metrics_path}")
-    for key, value in metrics.items():
-        print(f"  {key}: {value:.4f}" if isinstance(value, float) else f"  {key}: {value}")
-    print(f"  confusion_matrix labels={labels} matrix={cm}")
+    for split_name in ("shared_split", "spatial_block_split"):
+        metrics = output[split_name]["metrics"]
+        matrix = output[split_name]["confusion_matrix"]["matrix"]
+        print(f"  {split_name} roc_auc {metrics['roc_auc']:.4f} accuracy {metrics['accuracy']:.4f}")
+        print(f"    confusion_matrix {matrix}")
     return output
 
 
