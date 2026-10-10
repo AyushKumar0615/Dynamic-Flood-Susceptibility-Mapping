@@ -21,3 +21,4 @@ jupyter
 
 # Plotting
 matplotlib
+scipy

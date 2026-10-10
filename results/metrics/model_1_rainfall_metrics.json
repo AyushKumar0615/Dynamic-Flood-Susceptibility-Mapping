@@ -1,0 +1,77 @@
+{
+    "experiment_name": "model_1_rainfall",
+    "script": "models/exp2_rainfall_only_rf.py",
+    "model": "LogisticRegression",
+    "feature_columns": [
+        "precip_1h",
+        "precip_3h",
+        "precip_6h",
+        "precip_24h"
+    ],
+    "dropped_columns": [
+        "ari_memory"
+    ],
+    "target_col": "label",
+    "random_seed": 42,
+    "test_size": 0.2,
+    "shared_split": {
+        "threshold": 0.5,
+        "n_train": 11520,
+        "n_test": 2880,
+        "metrics": {
+            "accuracy": 0.85,
+            "precision": 0.8887478849407784,
+            "recall": 0.9255506607929516,
+            "f1_score": 0.9067760034527406,
+            "roc_auc": 0.872721167039792
+        },
+        "confusion_matrix": {
+            "labels": [
+                0,
+                1
+            ],
+            "matrix": [
+                [
+                    347,
+                    263
+                ],
+                [
+                    169,
+                    2101
+                ]
+            ]
+        },
+        "protocol": "src.preprocessing.get_train_test_split"
+    },
+    "spatial_block_split": {
+        "threshold": 0.5,
+        "n_train": 11500,
+        "n_test": 2900,
+        "metrics": {
+            "accuracy": 0.8479310344827586,
+            "precision": 0.891286307053942,
+            "recall": 0.9230769230769231,
+            "f1_score": 0.9069031032298923,
+            "roc_auc": 0.8469758229330022
+        },
+        "confusion_matrix": {
+            "labels": [
+                0,
+                1
+            ],
+            "matrix": [
+                [
+                    311,
+                    262
+                ],
+                [
+                    179,
+                    2148
+                ]
+            ]
+        },
+        "protocol": "10x10 spatial blocks, row-major grid",
+        "block": 10
+    },
+    "map": "/private/tmp/flood-mapping/results/maps/model_1_rainfall_susceptibility_map.png"
+}
