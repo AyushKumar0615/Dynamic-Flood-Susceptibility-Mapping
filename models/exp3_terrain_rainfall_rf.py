@@ -64,9 +64,17 @@ _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
+import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
 
-from configs.config import RANDOM_SEED, TEST_SIZE, RF_PARAMS, METRICS_DIR, TARGET_COL
+from configs.config import (
+    RANDOM_SEED,
+    TEST_SIZE,
+    RF_PARAMS,
+    METRICS_DIR,
+    RESULTS_DIR,
+    TARGET_COL,
+)
 from src.preprocessing import build_feature_table, get_train_test_split
 from src.evaluation import evaluate_model
 
@@ -141,6 +149,28 @@ def run_experiment_3():
     print(f"[{EXPERIMENT_NAME}] metrics saved to {metrics_path}")
     for k, v in metrics.items():
         print(f"  {k}: {v:.4f}" if isinstance(v, float) else f"  {k}: {v}")
+
+    # --- Export full-dataset prediction probabilities for later visualization ---
+    # Uses the same fitted model and the same FEATURE_COLUMNS, over the full
+    # processed dataset in its original row order (the order build_feature_table
+    # returned it in -- no shuffling happens before this point). This does NOT
+    # reshape predictions, invent coordinates, or produce a geographic map: these
+    # are model probabilities per dataset row, nothing more.
+    full_prob = model.predict_proba(df[FEATURE_COLUMNS])[:, 1]
+    predictions_dir = os.path.join(RESULTS_DIR, "predictions")
+    os.makedirs(predictions_dir, exist_ok=True)
+    predictions_path = os.path.join(predictions_dir, "model_3_predictions.csv")
+    predictions_df = pd.DataFrame(
+        {
+            "row_index": df.index,
+            "flood_susceptibility_probability": full_prob,
+            # Observed target (same column resolved above), included for
+            # reference only -- this is the ground-truth label, not a prediction.
+            target_col: df[target_col].values,
+        }
+    )
+    predictions_df.to_csv(predictions_path, index=False)
+    print(f"[{EXPERIMENT_NAME}] predictions saved to {predictions_path}")
 
     return output
 
