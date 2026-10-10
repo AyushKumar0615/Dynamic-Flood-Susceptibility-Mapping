@@ -1,0 +1,72 @@
+{
+    "experiment_name": "model_2_conventional",
+    "script": "models/exp1_terrain_only_rf.py",
+    "model": "LogisticRegression",
+    "feature_columns": [
+        "elevation",
+        "slope"
+    ],
+    "target_col": "label",
+    "random_seed": 42,
+    "test_size": 0.2,
+    "shared_split": {
+        "threshold": 0.5,
+        "n_train": 11520,
+        "n_test": 2880,
+        "metrics": {
+            "accuracy": 0.83125,
+            "precision": 0.8556618819776715,
+            "recall": 0.945374449339207,
+            "f1_score": 0.8982838007534534,
+            "roc_auc": 0.8253820322091429
+        },
+        "confusion_matrix": {
+            "labels": [
+                0,
+                1
+            ],
+            "matrix": [
+                [
+                    248,
+                    362
+                ],
+                [
+                    124,
+                    2146
+                ]
+            ]
+        },
+        "protocol": "src.preprocessing.get_train_test_split"
+    },
+    "spatial_block_split": {
+        "threshold": 0.5,
+        "n_train": 11500,
+        "n_test": 2900,
+        "metrics": {
+            "accuracy": 0.8455172413793104,
+            "precision": 0.8697363242817788,
+            "recall": 0.9497206703910615,
+            "f1_score": 0.9079704190632704,
+            "roc_auc": 0.8426746944398822
+        },
+        "confusion_matrix": {
+            "labels": [
+                0,
+                1
+            ],
+            "matrix": [
+                [
+                    242,
+                    331
+                ],
+                [
+                    117,
+                    2210
+                ]
+            ]
+        },
+        "protocol": "10x10 spatial blocks, row-major grid",
+        "block": 10
+    },
+    "map": "/private/tmp/flood-mapping/results/maps/model_2_conventional_susceptibility_map.png"
+}
