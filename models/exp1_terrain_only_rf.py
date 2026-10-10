@@ -32,8 +32,9 @@ _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
-from configs.config import METRICS_DIR, RANDOM_SEED, TARGET_COL, TEST_SIZE
+from configs.config import MAPS_DIR, METRICS_DIR, RANDOM_SEED, TARGET_COL, TEST_SIZE
 from src.evaluation import evaluate_model
+from src.mapping import plot_susceptibility_map
 from src.preprocessing import build_feature_table, get_train_test_split
 
 EXPERIMENT_NAME = "model_2_conventional"
@@ -89,6 +90,17 @@ def score_split(df, train_index, test_index, target_col):
     }
 
 
+def save_susceptibility_map(df, train_index, target_col, save_path):
+    """Fit on the shared training rows and score every cell for the map."""
+    model = make_model()
+    model.fit(df.iloc[train_index][FEATURE_COLUMNS], df.iloc[train_index][target_col])
+    probability = model.predict_proba(df[FEATURE_COLUMNS])[:, 1]
+    side = int(np.sqrt(len(df)))
+    os.makedirs(os.path.dirname(save_path), exist_ok=True)
+    plot_susceptibility_map(probability, grid_shape=(side, side), save_path=save_path)
+    return save_path
+
+
 def run_model_2():
     df = build_feature_table(None).reset_index(drop=True)
     missing = [column for column in FEATURE_COLUMNS if column not in df.columns]
@@ -126,11 +138,15 @@ def run_model_2():
     }
 
     os.makedirs(METRICS_DIR, exist_ok=True)
+    os.makedirs(MAPS_DIR, exist_ok=True)
+    map_path = os.path.join(MAPS_DIR, "model_2_conventional_susceptibility_map.png")
+    output["map"] = save_susceptibility_map(df, shared_x_train.index, target_col, map_path)
     metrics_path = os.path.join(METRICS_DIR, "model_2_conventional_metrics.json")
     with open(metrics_path, "w") as handle:
         json.dump(output, handle, indent=4)
 
     print(f"[{EXPERIMENT_NAME}] metrics saved to {metrics_path}")
+    print(f"[{EXPERIMENT_NAME}] map saved to {map_path}")
     for split_name in ("shared_split", "spatial_block_split"):
         metrics = output[split_name]["metrics"]
         matrix = output[split_name]["confusion_matrix"]["matrix"]
