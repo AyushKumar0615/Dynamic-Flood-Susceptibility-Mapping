@@ -34,7 +34,7 @@ if _REPO_ROOT not in sys.path:
 
 from configs.config import MAPS_DIR, METRICS_DIR, RANDOM_SEED, TARGET_COL, TEST_SIZE
 from src.evaluation import evaluate_model
-from src.mapping import plot_susceptibility_map
+from src.mapping import plot_india_susceptibility_map
 from src.preprocessing import build_feature_table, get_train_test_split
 
 EXPERIMENT_NAME = "model_2_conventional"
@@ -95,9 +95,13 @@ def save_susceptibility_map(df, train_index, target_col, save_path):
     model = make_model()
     model.fit(df.iloc[train_index][FEATURE_COLUMNS], df.iloc[train_index][target_col])
     probability = model.predict_proba(df[FEATURE_COLUMNS])[:, 1]
-    side = int(np.sqrt(len(df)))
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
-    plot_susceptibility_map(probability, grid_shape=(side, side), save_path=save_path)
+    plot_india_susceptibility_map(
+        probability,
+        save_path,
+        title="India-Wide Flood Susceptibility Map\nModel 2: Logistic Regression (Conventional Terrain)",
+        colorbar_label="Predicted Flood Susceptibility Probability (Model 2)",
+    )
     return save_path
 
 
