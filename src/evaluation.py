@@ -48,3 +48,30 @@ def save_roc_curves(curves, save_path, title):
     fig.savefig(save_path, dpi=200, bbox_inches="tight")
     plt.close(fig)
     return save_path
+
+
+def save_confusion_matrix(matrix, labels, save_path, title):
+    """Save a 2 by 2 count matrix. labels are the class ids, in row order."""
+    data = np.asarray(matrix)
+    names = []
+    for label in labels:
+        names.append("No flood" if int(label) == 0 else "Flood")
+    fig, ax = plt.subplots(figsize=(5.5, 4.6))
+    image = ax.imshow(data, cmap="Blues")
+    ax.set_xticks(range(len(names)))
+    ax.set_yticks(range(len(names)))
+    ax.set_xticklabels([f"Pred {name}" for name in names])
+    ax.set_yticklabels([f"True {name}" for name in names])
+    peak = float(data.max()) if data.size else 1.0
+    for row in range(data.shape[0]):
+        for col in range(data.shape[1]):
+            value = int(data[row, col])
+            color = "white" if value > peak * 0.55 else "black"
+            ax.text(col, row, str(value), ha="center", va="center", color=color, fontsize=14)
+    ax.set_title(title)
+    fig.colorbar(image, ax=ax, fraction=0.046, pad=0.04)
+    fig.tight_layout()
+    os.makedirs(os.path.dirname(save_path), exist_ok=True)
+    fig.savefig(save_path, dpi=200, bbox_inches="tight")
+    plt.close(fig)
+    return save_path

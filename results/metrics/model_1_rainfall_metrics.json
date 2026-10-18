@@ -74,5 +74,9 @@
         "block": 10
     },
     "roc_curve": "/private/tmp/flood-mapping/results/figures/model_1_roc_curve.png",
+    "confusion_matrix_figures": {
+        "shared_split": "/private/tmp/flood-mapping/results/figures/model_1_confusion_matrix_shared.png",
+        "spatial_block_split": "/private/tmp/flood-mapping/results/figures/model_1_confusion_matrix_spatial.png"
+    },
     "map": "/private/tmp/flood-mapping/results/maps/model_1_rainfall_susceptibility_map.png"
 }
