@@ -68,5 +68,6 @@
         "protocol": "10x10 spatial blocks, row-major grid",
         "block": 10
     },
+    "roc_curve": "/private/tmp/flood-mapping/results/figures/model_2_roc_curve.png",
     "map": "/private/tmp/flood-mapping/results/maps/model_2_conventional_susceptibility_map.png"
 }
