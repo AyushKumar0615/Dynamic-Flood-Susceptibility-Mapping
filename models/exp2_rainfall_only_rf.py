@@ -33,8 +33,8 @@ _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
-from configs.config import MAPS_DIR, METRICS_DIR, RANDOM_SEED, TARGET_COL, TEST_SIZE
-from src.evaluation import evaluate_model
+from configs.config import FIGURES_DIR, MAPS_DIR, METRICS_DIR, RANDOM_SEED, TARGET_COL, TEST_SIZE
+from src.evaluation import evaluate_model, save_confusion_matrix, save_roc_curves
 from src.mapping import plot_india_susceptibility_map
 from src.preprocessing import build_feature_table, get_train_test_split
 
@@ -88,6 +88,8 @@ def score_split(df, train_index, test_index, target_col):
         "n_test": int(len(test_index)),
         "metrics": evaluate_model(y_test, prediction, probability),
         "confusion_matrix": {"labels": labels, "matrix": matrix},
+        "y_true": np.asarray(y_test),
+        "y_prob": np.asarray(probability),
     }
 
 
@@ -145,6 +147,31 @@ def run_model_1():
 
     os.makedirs(METRICS_DIR, exist_ok=True)
     os.makedirs(MAPS_DIR, exist_ok=True)
+    roc_path = os.path.join(FIGURES_DIR, "model_1_roc_curve.png")
+    save_roc_curves(
+        [
+            ("Shared split", shared.pop("y_true"), shared.pop("y_prob")),
+            ("Spatial block split", spatial.pop("y_true"), spatial.pop("y_prob")),
+        ],
+        roc_path,
+        "Model 1 ROC curve — rainfall",
+    )
+    output["roc_curve"] = roc_path
+    confusion_figures = {}
+    for split_name, filename, split_title in (
+        ("shared_split", "model_1_confusion_matrix_shared.png", "Model 1 confusion matrix — shared split"),
+        ("spatial_block_split", "model_1_confusion_matrix_spatial.png", "Model 1 confusion matrix — spatial block split"),
+    ):
+        split = output[split_name]
+        figure_path = os.path.join(FIGURES_DIR, filename)
+        save_confusion_matrix(
+            split["confusion_matrix"]["matrix"],
+            split["confusion_matrix"]["labels"],
+            figure_path,
+            split_title,
+        )
+        confusion_figures[split_name] = figure_path
+    output["confusion_matrix_figures"] = confusion_figures
     map_path = os.path.join(MAPS_DIR, "model_1_rainfall_susceptibility_map.png")
     output["map"] = save_susceptibility_map(df, shared_x_train.index, target_col, map_path)
     metrics_path = os.path.join(METRICS_DIR, "model_1_rainfall_metrics.json")
@@ -153,6 +180,7 @@ def run_model_1():
 
     print(f"[{EXPERIMENT_NAME}] metrics saved to {metrics_path}")
     print(f"[{EXPERIMENT_NAME}] map saved to {map_path}")
+    print(f"[{EXPERIMENT_NAME}] ROC curve saved to {roc_path}")
     for split_name in ("shared_split", "spatial_block_split"):
         metrics = output[split_name]["metrics"]
         matrix = output[split_name]["confusion_matrix"]["matrix"]
