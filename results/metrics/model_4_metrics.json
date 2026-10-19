@@ -1,0 +1,187 @@
+{
+    "experiment_name": "model_4_calculus_terrain",
+    "description": "Conventional terrain + terrain convergence/divergence + multi-timescale rainfall",
+    "branch": "feature/model-4-calculus-terrain",
+    "feature_columns": [
+        "elevation",
+        "slope",
+        "flow_convergence",
+        "surface_divergence",
+        "precip_1h",
+        "precip_3h",
+        "precip_6h",
+        "precip_24h"
+    ],
+    "excluded_columns": {
+        "ari_memory": "rainfall memory belongs to Models 3 and 5",
+        "interaction terms": "terrain x rainfall terms belong to Model 5",
+        "water_distance": "identical to elevation (correlation 1.0)"
+    },
+    "surface_divergence_note": "Laplacian of elevation on the row-major 120 x 120 grid; uses no labels.",
+    "target_col": "label",
+    "random_seed": 42,
+    "test_size": 0.2,
+    "rf_params": {
+        "n_estimators": 200,
+        "max_depth": 10,
+        "random_state": 42,
+        "n_jobs": -1
+    },
+    "xgb_params": {
+        "n_estimators": 200,
+        "max_depth": 6,
+        "learning_rate": 0.05,
+        "random_state": 42,
+        "eval_metric": "logloss"
+    },
+    "models": {
+        "RandomForest": {
+            "shared_split": {
+                "threshold": 0.5,
+                "n_train": 11520,
+                "n_test": 2880,
+                "metrics": {
+                    "accuracy": 0.9871527777777778,
+                    "precision": 0.9881941407958024,
+                    "recall": 0.9955947136563876,
+                    "f1_score": 0.9918806232170287,
+                    "roc_auc": 0.9991088322380299
+                },
+                "confusion_matrix": {
+                    "labels": [
+                        0,
+                        1
+                    ],
+                    "matrix": [
+                        [
+                            583,
+                            27
+                        ],
+                        [
+                            10,
+                            2260
+                        ]
+                    ]
+                },
+                "protocol": "src.preprocessing.get_train_test_split"
+            },
+            "spatial_block_split": {
+                "threshold": 0.5,
+                "n_train": 11500,
+                "n_test": 2900,
+                "metrics": {
+                    "accuracy": 0.9868965517241379,
+                    "precision": 0.9884763124199744,
+                    "recall": 0.9952728835410399,
+                    "f1_score": 0.99186295503212,
+                    "roc_auc": 0.999285270191117
+                },
+                "confusion_matrix": {
+                    "labels": [
+                        0,
+                        1
+                    ],
+                    "matrix": [
+                        [
+                            546,
+                            27
+                        ],
+                        [
+                            11,
+                            2316
+                        ]
+                    ]
+                },
+                "protocol": "10x10 spatial blocks, row-major grid",
+                "block": 10
+            },
+            "map": "/content/Dynamic-Flood-Susceptibility-Mapping/results/maps/model_4_rf_susceptibility_map.png",
+            "feature_importance": {
+                "elevation": 0.1532,
+                "slope": 0.1846,
+                "flow_convergence": 0.0933,
+                "surface_divergence": 0.0339,
+                "precip_1h": 0.0659,
+                "precip_3h": 0.13,
+                "precip_6h": 0.1402,
+                "precip_24h": 0.1989
+            }
+        },
+        "XGBoost": {
+            "shared_split": {
+                "threshold": 0.5,
+                "n_train": 11520,
+                "n_test": 2880,
+                "metrics": {
+                    "accuracy": 0.9916666666666667,
+                    "precision": 0.9934094903339191,
+                    "recall": 0.9960352422907489,
+                    "f1_score": 0.9947206335239771,
+                    "roc_auc": 0.9996620206542933
+                },
+                "confusion_matrix": {
+                    "labels": [
+                        0,
+                        1
+                    ],
+                    "matrix": [
+                        [
+                            595,
+                            15
+                        ],
+                        [
+                            9,
+                            2261
+                        ]
+                    ]
+                },
+                "protocol": "src.preprocessing.get_train_test_split"
+            },
+            "spatial_block_split": {
+                "threshold": 0.5,
+                "n_train": 11500,
+                "n_test": 2900,
+                "metrics": {
+                    "accuracy": 0.9917241379310345,
+                    "precision": 0.9948431456811345,
+                    "recall": 0.9948431456811345,
+                    "f1_score": 0.9948431456811345,
+                    "roc_auc": 0.9996340103392078
+                },
+                "confusion_matrix": {
+                    "labels": [
+                        0,
+                        1
+                    ],
+                    "matrix": [
+                        [
+                            561,
+                            12
+                        ],
+                        [
+                            12,
+                            2315
+                        ]
+                    ]
+                },
+                "protocol": "10x10 spatial blocks, row-major grid",
+                "block": 10
+            },
+            "map": "/content/Dynamic-Flood-Susceptibility-Mapping/results/maps/model_4_xgb_susceptibility_map.png",
+            "feature_importance": {
+                "elevation": 0.2438,
+                "slope": 0.2599,
+                "flow_convergence": 0.0152,
+                "surface_divergence": 0.0059,
+                "precip_1h": 0.0074,
+                "precip_3h": 0.0165,
+                "precip_6h": 0.098,
+                "precip_24h": 0.3534
+            }
+        }
+    },
+    "figures": {
+        "roc_curve": "/content/Dynamic-Flood-Susceptibility-Mapping/results/figures/model_4_roc_curve.png",
+        "confusion_matrix": "/content/Dynamic-Flood-Susceptibility-Mapping/results/figures/model_4_confusion_matrix.png"
+    }
+}
