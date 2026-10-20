@@ -73,5 +73,11 @@
         "shared_split": "/private/tmp/flood-mapping/results/figures/model_2_confusion_matrix_shared.png",
         "spatial_block_split": "/private/tmp/flood-mapping/results/figures/model_2_confusion_matrix_spatial.png"
     },
-    "map": "/private/tmp/flood-mapping/results/maps/model_2_conventional_susceptibility_map.png"
+    "map": "/private/tmp/flood-mapping/results/maps/model_2_conventional_susceptibility_map.png",
+    "figures": {
+        "roc_curve": "/private/tmp/flood-mapping/results/figures/model_2_roc_curve.png",
+        "confusion_matrix_shared": "/private/tmp/flood-mapping/results/figures/model_2_confusion_matrix_shared.png",
+        "confusion_matrix_spatial": "/private/tmp/flood-mapping/results/figures/model_2_confusion_matrix_spatial.png",
+        "india_map": "/private/tmp/flood-mapping/results/maps/model_2_conventional_susceptibility_map.png"
+    }
 }

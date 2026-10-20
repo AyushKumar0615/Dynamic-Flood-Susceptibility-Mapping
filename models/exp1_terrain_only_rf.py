@@ -93,10 +93,17 @@ def score_split(df, train_index, test_index, target_col):
 
 
 def save_susceptibility_map(df, train_index, target_col, save_path):
-    """Fit on the shared training rows and score every cell for the map."""
+    """Score every cell and draw it on the India outline.
+
+    Same steps as Model 4: reshape to 120 by 120, smooth for display only,
+    place the grid on longitude 68-97 E and latitude 8-37 N, and hide cells
+    outside the India boundary. Row 0 is the southern edge.
+    """
     model = make_model()
     model.fit(df.iloc[train_index][FEATURE_COLUMNS], df.iloc[train_index][target_col])
     probability = model.predict_proba(df[FEATURE_COLUMNS])[:, 1]
+    if len(probability) != 14400 or probability.min() < 0 or probability.max() > 1:
+        raise ValueError("Model 2 map probabilities must be 14,400 values in [0, 1].")
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
     plot_india_susceptibility_map(
         probability,
@@ -172,6 +179,12 @@ def run_model_2():
     output["confusion_matrix_figures"] = confusion_figures
     map_path = os.path.join(MAPS_DIR, "model_2_conventional_susceptibility_map.png")
     output["map"] = save_susceptibility_map(df, shared_x_train.index, target_col, map_path)
+    output["figures"] = {
+        "roc_curve": roc_path,
+        "confusion_matrix_shared": confusion_figures["shared_split"],
+        "confusion_matrix_spatial": confusion_figures["spatial_block_split"],
+        "india_map": map_path,
+    }
     metrics_path = os.path.join(METRICS_DIR, "model_2_conventional_metrics.json")
     with open(metrics_path, "w") as handle:
         json.dump(output, handle, indent=4)
