@@ -1,21 +1,13 @@
 """Model 1: rainfall only.
 
 Features are precip_1h, precip_3h, precip_6h, and precip_24h. ari_memory
-is left out: in this CSV it moves with precip_24h at correlation 0.9997,
-so it is the same signal stored twice, not a separate rainfall memory.
+is left out because it copies precip_24h in this CSV.
 
-A logistic regression replaces the depth-10 random forest. On the same
-shared split the ranking is better (higher ROC AUC) and the 0.5 cutoff
-raises fewer false alarms. Missed floods stay about the same. The four
-rainfall columns are strongly tied to each other, so a deeper forest
-does not find a better rule.
-
-Two evaluations are saved. shared_split uses
-src.preprocessing.get_train_test_split, so the rows match the other
-experiments. spatial_block_split holds out whole 10 by 10 blocks on the
-120 by 120 grid implied by row order. That score is the honest one,
-because a random split puts neighboring cells on both sides. The CSV
-has no coordinates, so the grid is row order only.
+Two classifiers are trained with the shared RF_PARAMS and XGB_PARAMS,
+the same pair Model 4 and Model 5 use. Each one gets an India map:
+longitude 68-97 E, latitude 8-37 N, cells outside the India boundary
+hidden. The shared split matches the other experiments. The spatial
+block split is the stricter check.
 """
 
 import json
@@ -23,17 +15,25 @@ import os
 import sys
 
 import numpy as np
-from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import confusion_matrix
 from sklearn.model_selection import train_test_split
-from sklearn.pipeline import make_pipeline
-from sklearn.preprocessing import StandardScaler
+from xgboost import XGBClassifier
 
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
-from configs.config import FIGURES_DIR, MAPS_DIR, METRICS_DIR, RANDOM_SEED, TARGET_COL, TEST_SIZE
+from configs.config import (
+    FIGURES_DIR,
+    MAPS_DIR,
+    METRICS_DIR,
+    RANDOM_SEED,
+    RF_PARAMS,
+    TARGET_COL,
+    TEST_SIZE,
+    XGB_PARAMS,
+)
 from src.evaluation import evaluate_model, save_confusion_matrix, save_roc_curves
 from src.mapping import plot_india_susceptibility_map
 from src.preprocessing import build_feature_table, get_train_test_split
@@ -41,13 +41,21 @@ from src.preprocessing import build_feature_table, get_train_test_split
 EXPERIMENT_NAME = "model_1_rainfall"
 FEATURE_COLUMNS = ["precip_1h", "precip_3h", "precip_6h", "precip_24h"]
 BLOCK = 10
+MAP_FILES = {
+    "RandomForest": "model_1_rf_susceptibility_map.png",
+    "XGBoost": "model_1_xgb_susceptibility_map.png",
+}
+MAP_TITLES = {
+    "RandomForest": "India-Wide Flood Susceptibility Map\nModel 1: Random Forest (Rainfall)",
+    "XGBoost": "India-Wide Flood Susceptibility Map\nModel 1: XGBoost (Rainfall)",
+}
 
 
-def make_model():
-    return make_pipeline(
-        StandardScaler(),
-        LogisticRegression(max_iter=1000, random_state=RANDOM_SEED),
-    )
+def make_models():
+    return {
+        "RandomForest": RandomForestClassifier(**RF_PARAMS),
+        "XGBoost": XGBClassifier(**XGB_PARAMS),
+    }
 
 
 def spatial_block_indices(n_rows, y, block=BLOCK):
@@ -72,47 +80,50 @@ def spatial_block_indices(n_rows, y, block=BLOCK):
 
 
 def score_split(df, train_index, test_index, target_col):
-    model = make_model()
     x_train = df.iloc[train_index][FEATURE_COLUMNS]
     y_train = df.iloc[train_index][target_col]
     x_test = df.iloc[test_index][FEATURE_COLUMNS]
     y_test = df.iloc[test_index][target_col]
-    model.fit(x_train, y_train)
-    probability = model.predict_proba(x_test)[:, 1]
-    prediction = (probability >= 0.5).astype(int)
-    labels = sorted(int(value) for value in y_test.unique())
-    matrix = confusion_matrix(y_test, prediction, labels=labels).tolist()
-    return {
-        "threshold": 0.5,
-        "n_train": int(len(train_index)),
-        "n_test": int(len(test_index)),
-        "metrics": evaluate_model(y_test, prediction, probability),
-        "confusion_matrix": {"labels": labels, "matrix": matrix},
-        "y_true": np.asarray(y_test),
-        "y_prob": np.asarray(probability),
-    }
+    scores = {}
+    fitted = {}
+    for name, model in make_models().items():
+        model.fit(x_train, y_train)
+        probability = model.predict_proba(x_test)[:, 1]
+        prediction = (probability >= 0.5).astype(int)
+        labels = sorted(int(value) for value in y_test.unique())
+        matrix = confusion_matrix(y_test, prediction, labels=labels).tolist()
+        scores[name] = {
+            "threshold": 0.5,
+            "n_train": int(len(train_index)),
+            "n_test": int(len(test_index)),
+            "metrics": evaluate_model(y_test, prediction, probability),
+            "confusion_matrix": {"labels": labels, "matrix": matrix},
+            "y_true": np.asarray(y_test),
+            "y_prob": np.asarray(probability),
+        }
+        fitted[name] = model
+    return scores, fitted
 
 
-def save_susceptibility_map(df, train_index, target_col, save_path):
-    """Score every cell and draw it on the India outline.
-
-    Same steps as Model 4: reshape to 120 by 120, smooth for display only,
-    place the grid on longitude 68-97 E and latitude 8-37 N, and hide cells
-    outside the India boundary. Row 0 is the southern edge.
-    """
-    model = make_model()
-    model.fit(df.iloc[train_index][FEATURE_COLUMNS], df.iloc[train_index][target_col])
-    probability = model.predict_proba(df[FEATURE_COLUMNS])[:, 1]
-    if len(probability) != 14400 or probability.min() < 0 or probability.max() > 1:
-        raise ValueError("Model 1 map probabilities must be 14,400 values in [0, 1].")
-    os.makedirs(os.path.dirname(save_path), exist_ok=True)
-    plot_india_susceptibility_map(
-        probability,
-        save_path,
-        title="India-Wide Flood Susceptibility Map\nModel 1: Logistic Regression (Rainfall)",
-        colorbar_label="Predicted Flood Susceptibility Probability (Model 1)",
-    )
-    return save_path
+def save_india_maps(df, fitted, target_col):
+    """Score every cell with each fitted classifier and draw an India map."""
+    paths = {}
+    features = df[FEATURE_COLUMNS]
+    for name, model in fitted.items():
+        probability = model.predict_proba(features)[:, 1]
+        if len(probability) != 14400 or probability.min() < 0 or probability.max() > 1:
+            raise ValueError(f"{name} map probabilities must be 14,400 values in [0, 1].")
+        save_path = os.path.join(MAPS_DIR, MAP_FILES[name])
+        os.makedirs(MAPS_DIR, exist_ok=True)
+        plot_india_susceptibility_map(
+            probability,
+            save_path,
+            title=MAP_TITLES[name],
+            colorbar_label=f"Predicted Flood Susceptibility Probability (Model 1 {name})",
+        )
+        paths[name] = save_path
+        print(f"[{EXPERIMENT_NAME}] {name} map saved to {save_path}")
+    return paths
 
 
 def run_model_1():
@@ -131,74 +142,82 @@ def run_model_1():
     shared_x_train, shared_x_test, _, _ = get_train_test_split(
         df, FEATURE_COLUMNS, target_col=target_col
     )
-    shared = score_split(df, shared_x_train.index, shared_x_test.index, target_col)
-    shared["protocol"] = "src.preprocessing.get_train_test_split"
+    shared_scores, shared_fitted = score_split(
+        df, shared_x_train.index, shared_x_test.index, target_col
+    )
+    for name in shared_scores:
+        shared_scores[name]["protocol"] = "src.preprocessing.get_train_test_split"
 
     train_index, test_index = spatial_block_indices(len(df), df[target_col].to_numpy())
-    spatial = score_split(df, train_index, test_index, target_col)
-    spatial["protocol"] = f"{BLOCK}x{BLOCK} spatial blocks, row-major grid"
-    spatial["block"] = BLOCK
+    spatial_scores, _ = score_split(df, train_index, test_index, target_col)
+    for name in spatial_scores:
+        spatial_scores[name]["protocol"] = f"{BLOCK}x{BLOCK} spatial blocks, row-major grid"
+        spatial_scores[name]["block"] = BLOCK
+
+    roc_curves = []
+    confusion_figures = {}
+    models_out = {}
+    for name in ("RandomForest", "XGBoost"):
+        shared = shared_scores[name]
+        spatial = spatial_scores[name]
+        roc_curves.append((f"{name} shared", shared.pop("y_true"), shared.pop("y_prob")))
+        roc_curves.append((f"{name} spatial", spatial.pop("y_true"), spatial.pop("y_prob")))
+        confusion_figures[name] = {}
+        for split_name, split, split_label in (
+            ("shared_split", shared, "shared split"),
+            ("spatial_block_split", spatial, "spatial block split"),
+        ):
+            slug = "shared" if split_name == "shared_split" else "spatial"
+            filename = f"model_1_{name.lower()}_confusion_matrix_{slug}.png"
+            figure_path = os.path.join(FIGURES_DIR, filename)
+            save_confusion_matrix(
+                split["confusion_matrix"]["matrix"],
+                split["confusion_matrix"]["labels"],
+                figure_path,
+                f"Model 1 {name} confusion matrix — {split_label}",
+            )
+            confusion_figures[name][split_name] = figure_path
+        models_out[name] = {
+            "shared_split": shared,
+            "spatial_block_split": spatial,
+        }
+
+    roc_path = os.path.join(FIGURES_DIR, "model_1_roc_curve.png")
+    save_roc_curves(roc_curves, roc_path, "Model 1 ROC curve — rainfall")
+    map_paths = save_india_maps(df, shared_fitted, target_col)
+    for name, path in map_paths.items():
+        models_out[name]["map"] = path
 
     output = {
         "experiment_name": EXPERIMENT_NAME,
         "script": "models/exp2_rainfall_only_rf.py",
-        "model": "LogisticRegression",
         "feature_columns": FEATURE_COLUMNS,
         "dropped_columns": ["ari_memory"],
         "target_col": target_col,
         "random_seed": RANDOM_SEED,
         "test_size": TEST_SIZE,
-        "shared_split": shared,
-        "spatial_block_split": spatial,
+        "rf_params": RF_PARAMS,
+        "xgb_params": XGB_PARAMS,
+        "models": models_out,
+        "figures": {
+            "roc_curve": roc_path,
+            "confusion_matrices": confusion_figures,
+            "india_maps": map_paths,
+        },
     }
-
     os.makedirs(METRICS_DIR, exist_ok=True)
-    os.makedirs(MAPS_DIR, exist_ok=True)
-    roc_path = os.path.join(FIGURES_DIR, "model_1_roc_curve.png")
-    save_roc_curves(
-        [
-            ("Shared split", shared.pop("y_true"), shared.pop("y_prob")),
-            ("Spatial block split", spatial.pop("y_true"), spatial.pop("y_prob")),
-        ],
-        roc_path,
-        "Model 1 ROC curve — rainfall",
-    )
-    output["roc_curve"] = roc_path
-    confusion_figures = {}
-    for split_name, filename, split_title in (
-        ("shared_split", "model_1_confusion_matrix_shared.png", "Model 1 confusion matrix — shared split"),
-        ("spatial_block_split", "model_1_confusion_matrix_spatial.png", "Model 1 confusion matrix — spatial block split"),
-    ):
-        split = output[split_name]
-        figure_path = os.path.join(FIGURES_DIR, filename)
-        save_confusion_matrix(
-            split["confusion_matrix"]["matrix"],
-            split["confusion_matrix"]["labels"],
-            figure_path,
-            split_title,
-        )
-        confusion_figures[split_name] = figure_path
-    output["confusion_matrix_figures"] = confusion_figures
-    map_path = os.path.join(MAPS_DIR, "model_1_rainfall_susceptibility_map.png")
-    output["map"] = save_susceptibility_map(df, shared_x_train.index, target_col, map_path)
-    output["figures"] = {
-        "roc_curve": roc_path,
-        "confusion_matrix_shared": confusion_figures["shared_split"],
-        "confusion_matrix_spatial": confusion_figures["spatial_block_split"],
-        "india_map": map_path,
-    }
     metrics_path = os.path.join(METRICS_DIR, "model_1_rainfall_metrics.json")
     with open(metrics_path, "w") as handle:
         json.dump(output, handle, indent=4)
 
     print(f"[{EXPERIMENT_NAME}] metrics saved to {metrics_path}")
-    print(f"[{EXPERIMENT_NAME}] map saved to {map_path}")
     print(f"[{EXPERIMENT_NAME}] ROC curve saved to {roc_path}")
-    for split_name in ("shared_split", "spatial_block_split"):
-        metrics = output[split_name]["metrics"]
-        matrix = output[split_name]["confusion_matrix"]["matrix"]
-        print(f"  {split_name} roc_auc {metrics['roc_auc']:.4f} accuracy {metrics['accuracy']:.4f}")
-        print(f"    confusion_matrix {matrix}")
+    for name, result in models_out.items():
+        for split_name in ("shared_split", "spatial_block_split"):
+            metrics = result[split_name]["metrics"]
+            matrix = result[split_name]["confusion_matrix"]["matrix"]
+            print(f"  {name} {split_name} roc_auc {metrics['roc_auc']:.4f}")
+            print(f"    confusion_matrix {matrix}")
     return output
 
 

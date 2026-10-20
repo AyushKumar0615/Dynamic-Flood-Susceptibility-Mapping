@@ -1,7 +1,6 @@
 {
     "experiment_name": "model_1_rainfall",
     "script": "models/exp2_rainfall_only_rf.py",
-    "model": "LogisticRegression",
     "feature_columns": [
         "precip_1h",
         "precip_3h",
@@ -14,75 +13,160 @@
     "target_col": "label",
     "random_seed": 42,
     "test_size": 0.2,
-    "shared_split": {
-        "threshold": 0.5,
-        "n_train": 11520,
-        "n_test": 2880,
-        "metrics": {
-            "accuracy": 0.85,
-            "precision": 0.8887478849407784,
-            "recall": 0.9255506607929516,
-            "f1_score": 0.9067760034527406,
-            "roc_auc": 0.872721167039792
-        },
-        "confusion_matrix": {
-            "labels": [
-                0,
-                1
-            ],
-            "matrix": [
-                [
-                    347,
-                    263
-                ],
-                [
-                    169,
-                    2101
-                ]
-            ]
-        },
-        "protocol": "src.preprocessing.get_train_test_split"
+    "rf_params": {
+        "n_estimators": 200,
+        "max_depth": 10,
+        "random_state": 42,
+        "n_jobs": -1
     },
-    "spatial_block_split": {
-        "threshold": 0.5,
-        "n_train": 11500,
-        "n_test": 2900,
-        "metrics": {
-            "accuracy": 0.8479310344827586,
-            "precision": 0.891286307053942,
-            "recall": 0.9230769230769231,
-            "f1_score": 0.9069031032298923,
-            "roc_auc": 0.8469758229330022
-        },
-        "confusion_matrix": {
-            "labels": [
-                0,
-                1
-            ],
-            "matrix": [
-                [
-                    311,
-                    262
-                ],
-                [
-                    179,
-                    2148
-                ]
-            ]
-        },
-        "protocol": "10x10 spatial blocks, row-major grid",
-        "block": 10
+    "xgb_params": {
+        "n_estimators": 200,
+        "max_depth": 6,
+        "learning_rate": 0.05,
+        "random_state": 42,
+        "eval_metric": "logloss"
     },
-    "roc_curve": "/private/tmp/flood-mapping/results/figures/model_1_roc_curve.png",
-    "confusion_matrix_figures": {
-        "shared_split": "/private/tmp/flood-mapping/results/figures/model_1_confusion_matrix_shared.png",
-        "spatial_block_split": "/private/tmp/flood-mapping/results/figures/model_1_confusion_matrix_spatial.png"
+    "models": {
+        "RandomForest": {
+            "shared_split": {
+                "threshold": 0.5,
+                "n_train": 11520,
+                "n_test": 2880,
+                "metrics": {
+                    "accuracy": 0.8451388888888889,
+                    "precision": 0.8828715365239295,
+                    "recall": 0.926431718061674,
+                    "f1_score": 0.9041272570937231,
+                    "roc_auc": 0.8688459594135913
+                },
+                "confusion_matrix": {
+                    "labels": [
+                        0,
+                        1
+                    ],
+                    "matrix": [
+                        [
+                            331,
+                            279
+                        ],
+                        [
+                            167,
+                            2103
+                        ]
+                    ]
+                },
+                "protocol": "src.preprocessing.get_train_test_split"
+            },
+            "spatial_block_split": {
+                "threshold": 0.5,
+                "n_train": 11500,
+                "n_test": 2900,
+                "metrics": {
+                    "accuracy": 0.8479310344827586,
+                    "precision": 0.8871100164203612,
+                    "recall": 0.928663515255694,
+                    "f1_score": 0.9074112954020576,
+                    "roc_auc": 0.8409156191337595
+                },
+                "confusion_matrix": {
+                    "labels": [
+                        0,
+                        1
+                    ],
+                    "matrix": [
+                        [
+                            298,
+                            275
+                        ],
+                        [
+                            166,
+                            2161
+                        ]
+                    ]
+                },
+                "protocol": "10x10 spatial blocks, row-major grid",
+                "block": 10
+            },
+            "map": "/private/tmp/flood-mapping/results/maps/model_1_rf_susceptibility_map.png"
+        },
+        "XGBoost": {
+            "shared_split": {
+                "threshold": 0.5,
+                "n_train": 11520,
+                "n_test": 2880,
+                "metrics": {
+                    "accuracy": 0.8454861111111112,
+                    "precision": 0.8800499791753436,
+                    "recall": 0.9308370044052864,
+                    "f1_score": 0.904731320916292,
+                    "roc_auc": 0.8645645266122625
+                },
+                "confusion_matrix": {
+                    "labels": [
+                        0,
+                        1
+                    ],
+                    "matrix": [
+                        [
+                            322,
+                            288
+                        ],
+                        [
+                            157,
+                            2113
+                        ]
+                    ]
+                },
+                "protocol": "src.preprocessing.get_train_test_split"
+            },
+            "spatial_block_split": {
+                "threshold": 0.5,
+                "n_train": 11500,
+                "n_test": 2900,
+                "metrics": {
+                    "accuracy": 0.8482758620689655,
+                    "precision": 0.8871563397620025,
+                    "recall": 0.9290932531155995,
+                    "f1_score": 0.9076406381192276,
+                    "roc_auc": 0.8387290559041707
+                },
+                "confusion_matrix": {
+                    "labels": [
+                        0,
+                        1
+                    ],
+                    "matrix": [
+                        [
+                            298,
+                            275
+                        ],
+                        [
+                            165,
+                            2162
+                        ]
+                    ]
+                },
+                "protocol": "10x10 spatial blocks, row-major grid",
+                "block": 10
+            },
+            "map": "/private/tmp/flood-mapping/results/maps/model_1_xgb_susceptibility_map.png"
+        }
     },
-    "map": "/private/tmp/flood-mapping/results/maps/model_1_rainfall_susceptibility_map.png",
     "figures": {
         "roc_curve": "/private/tmp/flood-mapping/results/figures/model_1_roc_curve.png",
-        "confusion_matrix_shared": "/private/tmp/flood-mapping/results/figures/model_1_confusion_matrix_shared.png",
-        "confusion_matrix_spatial": "/private/tmp/flood-mapping/results/figures/model_1_confusion_matrix_spatial.png",
-        "india_map": "/private/tmp/flood-mapping/results/maps/model_1_rainfall_susceptibility_map.png"
+        "confusion_matrices": {
+            "RandomForest": {
+                "shared_split": "/private/tmp/flood-mapping/results/figures/model_1_randomforest_confusion_matrix_shared.png",
+                "spatial_block_split": "/private/tmp/flood-mapping/results/figures/model_1_randomforest_confusion_matrix_spatial.png"
+            },
+            "XGBoost": {
+                "shared_split": "/private/tmp/flood-mapping/results/figures/model_1_xgboost_confusion_matrix_shared.png",
+                "spatial_block_split": "/private/tmp/flood-mapping/results/figures/model_1_xgboost_confusion_matrix_spatial.png"
+            }
+        },
+        "india_maps": {
+            "RandomForest": "/private/tmp/flood-mapping/results/maps/model_1_rf_susceptibility_map.png",
+            "XGBoost": "/private/tmp/flood-mapping/results/maps/model_1_xgb_susceptibility_map.png"
+        }
     }
 }
